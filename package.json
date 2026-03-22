@@ -1,0 +1,39 @@
+{
+  "name": "spoolman-mcp",
+  "version": "0.0.0",
+  "description": "MCP Server for Spoolman - 3D Printer Filament Management",
+  "main": "dist/index.js",
+  "bin": {
+    "spoolman-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "watch": "tsc --watch",
+    "semantic-release": "semantic-release"
+  },
+  "keywords": [
+    "mcp",
+    "spoolman",
+    "3d-printing",
+    "filament",
+    "model-context-protocol"
+  ],
+  "author": "Disane87",
+  "type": "module",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "axios": "^1.7.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@types/node": "^22.0.0",
+    "semantic-release": "^25.0.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.0"
+  }
+}
