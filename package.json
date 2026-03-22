@@ -1,6 +1,6 @@
 {
   "name": "@disane-dev/spoolman-mcp",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "MCP Server for Spoolman - 3D Printer Filament Management",
   "main": "dist/index.js",
   "bin": {

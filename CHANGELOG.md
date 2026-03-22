@@ -1,3 +1,10 @@
+## [0.0.1](https://github.com/Disane87/spoolman-mcp/compare/v0.0.0...v0.0.1) (2026-03-22)
+
+
+### Bug Fixes
+
+* reset version to 0.0.0 for initial 0.0.1 release ([208829a](https://github.com/Disane87/spoolman-mcp/commit/208829aedcdbb91332115fd96149339d0bfeec7e))
+
 # 1.0.0 (2026-03-22)
 
 
