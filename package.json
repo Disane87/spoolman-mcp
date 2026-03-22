@@ -20,6 +20,18 @@
     "filament",
     "model-context-protocol"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Disane87/spoolman-mcp.git"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "author": "Disane87",
   "type": "module",
   "license": "MIT",
