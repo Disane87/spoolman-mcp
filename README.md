@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/disane87-spoolman-mcp-badge.png)](https://mseep.ai/app/disane87-spoolman-mcp)
+
 # 🧵 Spoolman MCP Server
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue?style=flat-square)](https://github.com/Disane87/spoolman-mcp)
