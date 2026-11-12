@@ -1,141 +1,130 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { SpoolmanClient } from "../client.js";
+import {
+  defined,
+  encodeExtra,
+  extraFiltersSchema,
+  extraValuesSchema,
+  id,
+  idList,
+  json,
+  limitSchema,
+  offsetSchema,
+  page,
+  prefixExtraFilters,
+  sortSchema,
+  text,
+} from "./util.js";
+
+const multiColorDirection = z
+  .enum(["coaxial", "longitudinal"])
+  .nullable()
+  .optional()
+  .describe(
+    "Required when multi_color_hexes is set: 'coaxial' (colors side by side in the strand, e.g. silk " +
+      "dual/tri-color) or 'longitudinal' (colors change along the length, e.g. rainbow)."
+  );
+
+const filamentFields = {
+  name: z.string().max(64).optional().describe("Filament name, e.g. 'PolyTerra Charcoal Black'"),
+  vendor_id: z.number().int().positive().optional().describe("Vendor ID"),
+  material: z.string().max(64).optional().describe("Material type (e.g. PLA, PETG, ABS, TPU)"),
+  price: z.number().nonnegative().optional().describe("Price of a full spool, in the configured currency"),
+  weight: z.number().positive().optional().describe("Net filament weight of a full spool in grams"),
+  spool_weight: z.number().nonnegative().optional().describe("Empty spool weight in grams"),
+  article_number: z.string().max(64).optional().describe("Manufacturer article number / EAN"),
+  comment: z.string().max(1024).optional().describe("Optional comment"),
+  settings_extruder_temp: z.number().int().optional().describe("Recommended extruder temperature in °C"),
+  settings_bed_temp: z.number().int().optional().describe("Recommended bed temperature in °C"),
+  color_hex: z
+    .string()
+    .optional()
+    .describe("Single color as hex (6 or 8 chars, '#' optional), e.g. FF0000. Do not combine with multi_color_hexes."),
+  multi_color_hexes: z
+    .string()
+    .optional()
+    .describe("Two or more comma-separated hex colors for multi-color filaments. Requires multi_color_direction."),
+  multi_color_direction: multiColorDirection,
+  external_id: z.string().max(256).optional().describe("ID in an external database such as SpoolmanDB"),
+  extra: extraValuesSchema,
+};
 
 export function registerFilamentTools(server: McpServer, client: SpoolmanClient): void {
-  // ── GET /filament ────────────────────────────
   server.tool(
     "spoolman_list_filaments",
-    "List and search filaments in Spoolman. Supports filtering by vendor, material, color, article number and more.",
+    "List and search filament types. Supports filtering by vendor, material, color similarity, tag, custom fields and more.",
     {
-      vendor_id: z.number().int().positive().optional().describe("Filter by vendor ID"),
-      vendor_name: z.string().optional().describe("Filter by vendor name"),
-      name: z.string().optional().describe("Filter by filament name"),
-      material: z.string().optional().describe("Filter by material type (e.g. PLA, PETG, ABS)"),
-      article_number: z.string().optional().describe("Filter by article number"),
-      color_hex: z.string().optional().describe("Filter by color hex code (without #)"),
-      external_id: z.string().optional().describe("Filter by external ID"),
-      sort: z.string().optional().describe("Sort expression, e.g. 'name:asc'"),
-      limit: z.number().int().positive().optional().describe("Maximum number of results"),
-      offset: z.number().int().min(0).optional().describe("Pagination offset"),
+      vendor_id: idList("vendor"),
+      vendor_name: z.string().optional().describe("Partial case-insensitive match on vendor name"),
+      name: z.string().optional().describe("Partial case-insensitive match on filament name"),
+      material: z.string().optional().describe("Partial case-insensitive match on material (e.g. PLA)"),
+      article_number: z.string().optional().describe("Match on article number"),
+      color_hex: z.string().optional().describe("Find filaments with a color similar to this hex code"),
+      color_similarity_threshold: z
+        .number()
+        .min(0)
+        .max(100)
+        .optional()
+        .describe("How close colors must be when color_hex is set (0 = exact, default 20)"),
+      external_id: z.string().optional().describe("Match by external (SpoolmanDB) ID"),
+      tag: z.string().optional().describe("Find the filament linked to this NFC/RFID tag UID"),
+      extra_filters: extraFiltersSchema('"extra.<key>"'),
+      sort: sortSchema("vendor.name:asc,name:asc"),
+      limit: limitSchema,
+      offset: offsetSchema,
     },
     async (params) => {
-      const filaments = await client.getFilaments(params);
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(filaments, null, 2),
-          },
-        ],
-      };
+      const { items, total } = await client.getFilaments({
+        ...params,
+        extra_filters: prefixExtraFilters(params.extra_filters, ["extra."]),
+      });
+      return page(items, total, params.offset);
     }
   );
 
-  // ── GET /filament/{id} ───────────────────────
-  server.tool(
-    "spoolman_get_filament",
-    "Get a single filament by its ID.",
-    {
-      id: z.number().int().positive().describe("The filament ID"),
-    },
-    async ({ id }) => {
-      const filament = await client.getFilament(id);
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(filament, null, 2),
-          },
-        ],
-      };
-    }
+  server.tool("spoolman_get_filament", "Get a single filament by its ID.", { id: id("filament") }, async ({ id }) =>
+    json(await client.getFilament(id))
   );
 
-  // ── POST /filament ───────────────────────────
   server.tool(
     "spoolman_create_filament",
-    "Create a new filament definition in Spoolman. Density and diameter are required.",
+    "Create a new filament type. Density and diameter are required. Tip: use spoolman_search_external_filaments " +
+      "first to get accurate specs from SpoolmanDB.",
     {
-      density: z.number().positive().describe("Filament density in g/cm³ (required)"),
+      density: z.number().positive().describe("Filament density in g/cm³ (required, e.g. PLA 1.24, PETG 1.27)"),
       diameter: z.number().positive().describe("Filament diameter in mm (required, e.g. 1.75 or 2.85)"),
-      name: z.string().optional().describe("Filament name"),
-      vendor_id: z.number().int().positive().optional().describe("Vendor ID"),
-      material: z.string().optional().describe("Material type (e.g. PLA, PETG, ABS, TPU)"),
-      price: z.number().nonnegative().optional().describe("Price per spool"),
-      weight: z.number().positive().optional().describe("Net weight in grams (filament only, without spool)"),
-      spool_weight: z.number().positive().optional().describe("Empty spool weight in grams"),
-      article_number: z.string().optional().describe("Manufacturer article number"),
-      comment: z.string().optional().describe("Optional comment"),
-      settings_extruder_temp: z.number().int().optional().describe("Recommended extruder temperature in °C"),
-      settings_bed_temp: z.number().int().optional().describe("Recommended bed temperature in °C"),
-      color_hex: z.string().optional().describe("Color as hex string (without #), e.g. FF0000 for red"),
-      multi_color_hexes: z.string().optional().describe("Comma-separated hex colors for multi-color filaments"),
-      external_id: z.string().optional().describe("External database ID"),
+      ...filamentFields,
     },
-    async (params) => {
-      const filament = await client.createFilament(params);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Filament created successfully:\n${JSON.stringify(filament, null, 2)}`,
-          },
-        ],
-      };
+    async ({ extra, ...rest }) => {
+      const filament = await client.createFilament({ ...rest, extra: encodeExtra(extra) });
+      return json(filament, "Filament created:");
     }
   );
 
-  // ── PATCH /filament/{id} ─────────────────────
   server.tool(
     "spoolman_update_filament",
-    "Update an existing filament by ID. Only provide the fields you want to change.",
+    "Update an existing filament by ID. Only provide the fields you want to change. To switch a filament " +
+      "between single- and multi-color, set the new color field(s), pass an empty string for the old color field, and (when going to single-color) multi_color_direction: null.",
     {
-      id: z.number().int().positive().describe("The filament ID"),
-      name: z.string().optional().describe("New filament name"),
-      vendor_id: z.number().int().positive().optional().describe("New vendor ID"),
-      material: z.string().optional().describe("New material type"),
-      price: z.number().nonnegative().optional().describe("New price"),
+      id: id("filament"),
       density: z.number().positive().optional().describe("New density in g/cm³"),
       diameter: z.number().positive().optional().describe("New diameter in mm"),
-      weight: z.number().positive().optional().describe("New net weight in grams"),
-      spool_weight: z.number().positive().optional().describe("New empty spool weight in grams"),
-      article_number: z.string().optional().describe("New article number"),
-      comment: z.string().optional().describe("New comment"),
-      settings_extruder_temp: z.number().int().optional().describe("New extruder temperature"),
-      settings_bed_temp: z.number().int().optional().describe("New bed temperature"),
-      color_hex: z.string().optional().describe("New color hex (without #)"),
+      ...filamentFields,
     },
-    async ({ id, ...payload }) => {
-      const filament = await client.updateFilament(id, payload);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Filament updated successfully:\n${JSON.stringify(filament, null, 2)}`,
-          },
-        ],
-      };
+    async ({ id, extra, ...rest }) => {
+      const filament = await client.updateFilament(id, defined({ ...rest, extra: encodeExtra(extra) }));
+      return json(filament, "Filament updated:");
     }
   );
 
-  // ── DELETE /filament/{id} ────────────────────
   server.tool(
     "spoolman_delete_filament",
     "Delete a filament by ID.",
-    {
-      id: z.number().int().positive().describe("The filament ID"),
-    },
+    { id: id("filament") },
     async ({ id }) => {
       await client.deleteFilament(id);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Filament with ID ${id} deleted successfully.`,
-          },
-        ],
-      };
+      return text(`Filament with ID ${id} deleted.`);
     }
   );
 }
