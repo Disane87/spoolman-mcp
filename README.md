@@ -42,9 +42,14 @@ The server exposes the **full Spoolman REST API v1** as MCP tools — every vend
 - 🧵 **Spool Management** — Track spools, log usage (by weight or length), weight measurement, archiving
 - ⚙️ **Settings** — Read and write Spoolman configuration
 - 🏷️ **Custom Fields** — Manage extra fields for vendors, filaments, and spools
+- 🔎 **Search & Inventory Totals** — Free-text/color search across everything, and grouped totals by material, vendor, location or custom field
+- 📚 **SpoolmanDB Catalog** — Look up accurate filament specs before creating filaments
+- 📡 **NFC/RFID Tags** — Link/unlink tags to spools and filaments, report scans
 - 🔍 **Lookups** — Browse all materials, locations, lot numbers, article numbers
 - 📦 **Export** — Export data as JSON or CSV
 - 💓 **System** — Health check, info, and backup trigger
+
+Custom (extra) field values can be set on vendors, filaments and spools by passing plain values (e.g. `{"shelf": "B2", "count": 3}`); the server handles Spoolman's JSON-encoding. Errors from Spoolman are passed through verbatim so the assistant can see what went wrong.
 
 > [!NOTE]
 > This server communicates with your **local/self-hosted** Spoolman instance. You need a running Spoolman before using this MCP server.
@@ -57,7 +62,7 @@ The server exposes the **full Spoolman REST API v1** as MCP tools — every vend
 |---|---|
 | Node.js | ≥ 18 |
 | npm | ≥ 9 |
-| Spoolman | Any recent version |
+| Spoolman | 0.27.x (tested against 0.27.1) |
 | Claude Desktop / Claude Code | Any |
 
 ---
@@ -122,7 +127,7 @@ The server is configured via **environment variables**:
 | `spoolman_get_vendor` | Get a single vendor by ID |
 | `spoolman_create_vendor` | Create a new vendor |
 | `spoolman_update_vendor` | Update an existing vendor |
-| `spoolman_delete_vendor` | Delete a vendor (cascades to filaments!) |
+| `spoolman_delete_vendor` | Delete a vendor (its filaments are kept, without a vendor) |
 
 ### 🎨 Filaments
 
@@ -145,6 +150,25 @@ The server is configured via **environment variables**:
 | `spoolman_delete_spool` | Delete a spool |
 | `spoolman_use_spool` | Log filament consumption (g or mm) |
 | `spoolman_measure_spool` | Update remaining weight via scale measurement |
+| `spoolman_rename_spool_field_value` | Rename a location or custom-field value on every spool at once |
+
+### 🔎 Search & Inventory
+
+| Tool | Description |
+|---|---|
+| `spoolman_search` | Free-text and color search across spools, filaments and vendors |
+| `spoolman_group_spools` | Grouped totals (count, remaining weight) by filament, vendor, material, location or custom field |
+| `spoolman_search_external_filaments` | Search the SpoolmanDB filament catalog |
+| `spoolman_list_external_materials` | List SpoolmanDB material definitions |
+
+### 📡 NFC/RFID Tags
+
+| Tool | Description |
+|---|---|
+| `spoolman_link_tag` | Link a tag UID to a spool or filament |
+| `spoolman_unlink_tag` | Unlink a tag from a spool or filament |
+| `spoolman_scan_tag` | Report a tag scan (lookup, broadcast, optional decode/auto-create) |
+| `spoolman_list_tag_readers` | List recently seen tag readers |
 
 ### ⚙️ Settings
 
@@ -159,6 +183,7 @@ The server is configured via **environment variables**:
 | Tool | Description |
 |---|---|
 | `spoolman_list_fields` | List custom fields for an entity type |
+| `spoolman_list_field_values` | List distinct values stored for a custom field |
 | `spoolman_upsert_field` | Add or update a custom field |
 | `spoolman_delete_field` | Remove a custom field |
 
@@ -238,7 +263,10 @@ spoolman-mcp/
 │       ├── settings.ts   # Settings tools
 │       ├── fields.ts     # Custom field tools
 │       ├── lookup.ts     # Lookup / discovery tools
-│       └── export.ts     # Data export tools
+│       ├── export.ts     # Data export tools
+│       ├── search.ts     # Search, grouped totals, SpoolmanDB catalog
+│       ├── tags.ts       # NFC/RFID tag tools
+│       └── util.ts       # Shared schemas and result helpers
 ├── dist/                 # Compiled JavaScript (after npm run build)
 ├── package.json
 ├── tsconfig.json

@@ -24,6 +24,8 @@ import { registerSettingsTools } from "./tools/settings.js";
 import { registerFieldTools } from "./tools/fields.js";
 import { registerLookupTools } from "./tools/lookup.js";
 import { registerExportTools } from "./tools/export.js";
+import { registerSearchTools } from "./tools/search.js";
+import { registerTagTools } from "./tools/tags.js";
 
 // ─────────────────────────────────────────────
 //  Configuration
@@ -60,6 +62,8 @@ registerSettingsTools(server, client);
 registerFieldTools(server, client);
 registerLookupTools(server, client);
 registerExportTools(server, client);
+registerSearchTools(server, client);
+registerTagTools(server, client);
 
 // ─────────────────────────────────────────────
 //  Transport & Start
